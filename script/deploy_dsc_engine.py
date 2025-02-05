@@ -24,5 +24,5 @@ def deploy_dsc_engine(dsc: VyperContract) -> VyperContract:
 
 def moccasin_main() -> VyperContract:
     active_network: Network = get_active_network()
-    dsc: VyperContract = active_network.manifest_contract("decentralized_stable_coin")
+    dsc: VyperContract = active_network.manifest_named("decentralized_stable_coin")
     return deploy_dsc_engine(dsc)

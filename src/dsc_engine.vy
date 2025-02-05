@@ -19,23 +19,23 @@ from interfaces import AggregatorV3Interface
 # ------------------------------------------------------------------
 #                              ERRORS
 # ------------------------------------------------------------------
-DSC_ENGINE_NEEDS_MORE_THAN_ZERO: constant(
-    String[33]
+DSC_ENGINE_NEEDS_MORE_THAN_ZERO: public(
+    constant(String[33])
 ) = "dsce_engine: needs more than zero"
-DSC_ENGINE_TOKEN_NOT_ALLOWED: constant(
-    String[33]
+DSC_ENGINE_TOKEN_NOT_ALLOWED: public(
+    constant(String[33])
 ) = "dsce_engine: token not allowed"
-DSC_ENGINE_TRANSFER_FAILED: constant(
-    String[33]
+DSC_ENGINE_TRANSFER_FAILED: public(
+    constant(String[33])
 ) = "dsce_engine: transfer failed"
-DSC_ENGINE_HEALTH_FACTOR_BROKEN: constant(
-    String[33]
+DSC_ENGINE_HEALTH_FACTOR_BROKEN: public(
+    constant(String[33])
 ) = "dsce_engine: health factor broken"
-DSC_ENGINE_HEALTH_FACTOR_GOOD: constant(
-    String[33]
+DSC_ENGINE_HEALTH_FACTOR_GOOD: public(
+    constant(String[33])
 ) = "dsce_engine: health factor good"
-DSC_ENGINE_DID_NOT_IMPROVE_HEALTH_FACTOR: constant(
-    String[42]
+DSC_ENGINE_DID_NOT_IMPROVE_HEALTH_FACTOR: public(
+    constant(String[42])
 ) = "dsce_engine: did not improve health factor"
 
 # ------------------------------------------------------------------
