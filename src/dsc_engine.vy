@@ -144,7 +144,8 @@ def redeem_for_dsc(
 @external
 def burn_dsc(amount: uint256):
     self._burn_dsc(amount, msg.sender, msg.sender)
-    self._revert_if_health_factor_broken(msg.sender)
+    #@dev is it really necessary to check the health factor here?
+    # self._revert_if_health_factor_broken(msg.sender)
 
 
 @external
@@ -183,6 +184,9 @@ def liquidate(collateral: address, user: address, debt_to_cover: uint256):
     ), DSC_ENGINE_DID_NOT_IMPROVE_HEALTH_FACTOR
     self._revert_if_health_factor_broken(msg.sender)
 
+@external
+def get_health_factor(user: address) -> uint256:
+    return self._health_factor(user)
 
 @internal
 def _deposit_collateral(

@@ -4,8 +4,13 @@ import pytest
 from eth.codecs.abi.exceptions import EncodeError
 from src import dsc_engine
 from tests.constants import (
+    BURN_DSC_AMOUNT,
     COLLATERAL_AMOUNT,
+    DEBT_TO_COVER_BREAKS_HEALTH_FACTOR,
+    DEBT_TO_COVER_NO_IMPROVEMENT,
     MINT_AMOUNT,
+    PRICE_FEED_STILL_GOOD,
+    PRICE_FEED_UNDER_VALUE_PRICE,
     RANDOM_TOKEN_ADDRESS,
     REDEEM_AMOUNT,
 )
@@ -191,6 +196,14 @@ def test_redeem_collateral_success(
         dsce_with_minted_dsc_collateral.redeem_collateral(wbtc, REDEEM_AMOUNT)
 
     # Assert
+    logs_dsce = dsce_with_minted_dsc_collateral.get_logs()
+    log_redeem_token = logs_dsce[0].topics[0]
+    log_redeem_from = logs_dsce[0].topics[1]
+    log_redeem_to = logs_dsce[0].topics[2]
+
+    assert log_redeem_token == wbtc.address
+    assert log_redeem_from == some_user
+    assert log_redeem_to == some_user
     assert weth.balanceOf(some_user) == REDEEM_AMOUNT
     assert wbtc.balanceOf(some_user) == REDEEM_AMOUNT
     assert (
@@ -205,3 +218,126 @@ def test_redeem_collateral_success(
         )
         == starting_wbtc_deposited_balance - REDEEM_AMOUNT
     )
+
+
+# ------------------------------------------------------------------
+#                             BURN DSC
+# ------------------------------------------------------------------
+def test_burn_dsc_success(some_user, dsce_with_minted_dsc_collateral, dsc):
+    # Arrange
+    starting_dsc_balance = dsce_with_minted_dsc_collateral.user_to_dsc_minted(some_user)
+
+    # Act
+    with boa.env.prank(some_user):
+        dsc.approve(dsce_with_minted_dsc_collateral, BURN_DSC_AMOUNT)
+        dsce_with_minted_dsc_collateral.burn_dsc(BURN_DSC_AMOUNT)
+
+    # Assert
+    assert dsce_with_minted_dsc_collateral.user_to_dsc_minted(some_user) == (
+        starting_dsc_balance - BURN_DSC_AMOUNT
+    )
+
+
+# ------------------------------------------------------------------
+#                          REDEEM FOR DSC
+# ------------------------------------------------------------------
+def test_redeem_for_dsc_reverts_if_health_factor_broken(
+    some_user, dsce_with_minted_dsc_collateral, dsc, weth, wbtc
+):
+    # Arrange
+    with boa.env.prank(some_user):
+        dsc.approve(dsce_with_minted_dsc_collateral, BURN_DSC_AMOUNT * 2)
+        # Act/Assert
+        with boa.reverts(
+            dsce_with_minted_dsc_collateral.DSC_ENGINE_HEALTH_FACTOR_BROKEN()
+        ):
+            dsce_with_minted_dsc_collateral.redeem_for_dsc(
+                weth, COLLATERAL_AMOUNT, BURN_DSC_AMOUNT
+            )
+            dsce_with_minted_dsc_collateral.redeem_for_dsc(
+                wbtc, COLLATERAL_AMOUNT, BURN_DSC_AMOUNT
+            )
+
+
+def test_redeem_for_dsc_success(
+    some_user, dsce_with_minted_dsc_collateral, dsc, weth, wbtc
+):
+    # Arrange
+    starting_dsc_balance = dsce_with_minted_dsc_collateral.user_to_dsc_minted(some_user)
+    starting_weth_balance = weth.balanceOf(some_user)
+    starting_wbtc_balance = wbtc.balanceOf(some_user)
+
+    # Act
+    with boa.env.prank(some_user):
+        dsc.approve(dsce_with_minted_dsc_collateral, BURN_DSC_AMOUNT * 2)
+        dsce_with_minted_dsc_collateral.redeem_for_dsc(
+            weth, REDEEM_AMOUNT, BURN_DSC_AMOUNT
+        )
+        dsce_with_minted_dsc_collateral.redeem_for_dsc(
+            wbtc, REDEEM_AMOUNT, BURN_DSC_AMOUNT
+        )
+
+    # Assert
+    assert dsce_with_minted_dsc_collateral.user_to_dsc_minted(some_user) == (
+        starting_dsc_balance - (BURN_DSC_AMOUNT * 2)
+    )
+    assert weth.balanceOf(some_user) == starting_weth_balance + REDEEM_AMOUNT
+    assert wbtc.balanceOf(some_user) == starting_wbtc_balance + REDEEM_AMOUNT
+
+
+# ------------------------------------------------------------------
+#                           LIQUIDATION
+# ------------------------------------------------------------------
+def test_liquidate_reverts_if_debt_zero(
+    some_user, dsce_with_minted_dsc_collateral, liquidator, weth
+):
+    # Arrange/Act/Assert
+    with boa.env.prank(liquidator):
+        with boa.reverts(
+            dsce_with_minted_dsc_collateral.DSC_ENGINE_NEEDS_MORE_THAN_ZERO()
+        ):
+            dsce_with_minted_dsc_collateral.liquidate(weth, some_user, 0)
+
+
+def test_liquidate_reverts_if_health_factor_good(
+    some_user, dsce_with_minted_dsc_collateral, liquidator, weth
+):
+    # Arrange/Act/Assert
+    with boa.env.prank(liquidator):
+        with boa.reverts(
+            dsce_with_minted_dsc_collateral.DSC_ENGINE_HEALTH_FACTOR_GOOD()
+        ):
+            dsce_with_minted_dsc_collateral.liquidate(weth, some_user, MINT_AMOUNT)
+
+
+def test_liquidate_revert_if_health_factor_good(
+    some_user, dsce_with_minted_dsc_collateral, liquidator, weth, eth_usd, btc_usd
+):
+    # Arrange
+    eth_usd.updateAnswer(PRICE_FEED_STILL_GOOD)
+    btc_usd.updateAnswer(PRICE_FEED_STILL_GOOD)
+
+    # Act/Assert
+    with boa.env.prank(liquidator):
+        with boa.reverts(
+            dsce_with_minted_dsc_collateral.DSC_ENGINE_HEALTH_FACTOR_GOOD()
+        ):
+            dsce_with_minted_dsc_collateral.liquidate(
+                weth, some_user, DEBT_TO_COVER_NO_IMPROVEMENT
+            )
+
+
+def test_liquidate_revert_if_health_factor_broken(
+    some_user, dsce_with_minted_dsc_for_liquidation, liquidator, weth, eth_usd, btc_usd
+):
+    # Arrange
+    eth_usd.updateAnswer(PRICE_FEED_UNDER_VALUE_PRICE)
+    btc_usd.updateAnswer(PRICE_FEED_UNDER_VALUE_PRICE)
+    # Act/Assert
+    with boa.env.prank(liquidator):
+        with boa.reverts(
+            dsce_with_minted_dsc_for_liquidation.DSC_ENGINE_HEALTH_FACTOR_BROKEN()
+        ):
+            dsce_with_minted_dsc_for_liquidation.liquidate(
+                weth, some_user, DEBT_TO_COVER_BREAKS_HEALTH_FACTOR
+            )

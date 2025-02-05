@@ -6,7 +6,13 @@ from moccasin.boa_tools import VyperContract
 from moccasin.config import MoccasinAccount, get_active_network, Network
 from script.deploy_dsc_engine import deploy_dsc_engine
 from script.mocks.deploy_mock_dsc_engine import deploy_mock_dsc_engine
-from tests.constants import BALANCE, COLLATERAL_AMOUNT, MINT_AMOUNT
+from tests.constants import (
+    BALANCE,
+    COLLATERAL_AMOUNT,
+    LIQUIDATION_COLLATERAL,
+    LIQUIDATION_MINT,
+    MINT_AMOUNT,
+)
 
 
 # ------------------------------------------------------------------
@@ -73,6 +79,27 @@ def some_user(weth, wbtc) -> str:
 
 
 @pytest.fixture(scope="function")
+def liquidator(weth, wbtc, dsc, dsce) -> str:
+    entropy = 7
+    # @dev https://eth-account.readthedocs.io/en/stable/eth_account.html#eth-account
+    account = Account.create(entropy)
+    boa.env.set_balance(account.address, BALANCE)
+    with boa.env.prank(account.address):
+        weth.mock_mint()
+        wbtc.mock_mint()
+
+        weth.approve(dsce, COLLATERAL_AMOUNT)
+        wbtc.approve(dsce, COLLATERAL_AMOUNT)
+
+        dsce.deposit_and_mint(weth, COLLATERAL_AMOUNT, MINT_AMOUNT)
+        dsce.deposit_and_mint(wbtc, COLLATERAL_AMOUNT, MINT_AMOUNT)
+
+        dsc.approve(dsce, MINT_AMOUNT)
+        dsce.mint_dsc(MINT_AMOUNT)
+    return account.address
+
+
+@pytest.fixture(scope="function")
 def dsce_with_minted_dsc_collateral(dsce, some_user, weth, wbtc) -> VyperContract:
     with boa.env.prank(some_user):
         weth.approve(dsce, COLLATERAL_AMOUNT)
@@ -96,3 +123,15 @@ def mock_dsce_with_minted_dsc_collateral(
         mock_dsce.deposit_and_mint(wbtc, COLLATERAL_AMOUNT, MINT_AMOUNT)
 
     return mock_dsce
+
+
+@pytest.fixture(scope="function")
+def dsce_with_minted_dsc_for_liquidation(dsce, some_user, weth, wbtc) -> VyperContract:
+    with boa.env.prank(some_user):
+        weth.approve(dsce, LIQUIDATION_COLLATERAL)
+        wbtc.approve(dsce, LIQUIDATION_COLLATERAL)
+
+        dsce.deposit_and_mint(weth, LIQUIDATION_COLLATERAL, LIQUIDATION_MINT)
+        dsce.deposit_and_mint(wbtc, LIQUIDATION_COLLATERAL, LIQUIDATION_MINT)
+
+    return dsce
