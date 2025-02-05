@@ -1,0 +1,63 @@
+# Events
+
+event CollatoralDeposited:
+    user: address
+    amount: uint256
+
+
+event CollateralRedeemed:
+    token: address
+    amount: uint256
+    _from: address
+    _to: address
+
+
+# Functions
+
+@external
+def deposit_collateral(
+    token_collateral_address: address, amount_collateral: uint256
+):
+    ...
+
+
+@external
+def mint_dsc(amount: uint256):
+    ...
+
+
+@external
+def redeem_collateral(token_collateral_address: address, amount: uint256):
+    ...
+
+
+@external
+def deposite_and_mint(
+    token_collateral: address,
+    amount_collateral: uint256,
+    amount_dsc_to_mint: uint256,
+):
+    ...
+
+
+@external
+def redeem_for_dsc(
+    token_collateral: address, amount_collateral: uint256, amount_dsc: uint256
+):
+    ...
+
+
+@external
+def burn_dsc(amount: uint256):
+    ...
+
+
+@external
+def liquidate(collateral: address, user: address, debt_to_cover: uint256):
+    ...
+
+
+@view
+@external
+def DSC_ENGINE_TRANSFER_FAILED() -> String[33]:
+    ...

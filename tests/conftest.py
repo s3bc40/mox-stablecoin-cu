@@ -3,9 +3,10 @@ import pytest
 
 from eth_account import Account
 from moccasin.boa_tools import VyperContract
-from moccasin.config import get_active_network, Network
+from moccasin.config import MoccasinAccount, get_active_network, Network
 from script.deploy_dsc_engine import deploy_dsc_engine
-from tests.constants import BALANCE
+from script.mocks.deploy_mock_dsc_engine import deploy_mock_dsc_engine
+from tests.constants import BALANCE, COLLATERAL_AMOUNT, MINT_AMOUNT
 
 
 # ------------------------------------------------------------------
@@ -40,6 +41,11 @@ def eth_usd(active_network: Network) -> VyperContract:
 #                         FUNCTION SCOPED
 # ------------------------------------------------------------------
 @pytest.fixture(scope="function")
+def default_account(active_network: Network) -> MoccasinAccount:
+    return active_network.get_default_account()
+
+
+@pytest.fixture(scope="function")
 def dsc(active_network: Network) -> VyperContract:
     return active_network.manifest_named("decentralized_stable_coin")
 
@@ -47,6 +53,11 @@ def dsc(active_network: Network) -> VyperContract:
 @pytest.fixture(scope="function")
 def dsce(dsc) -> VyperContract:
     return deploy_dsc_engine(dsc)
+
+
+@pytest.fixture(scope="function")
+def mock_dsce(dsc) -> VyperContract:
+    return deploy_mock_dsc_engine(dsc)
 
 
 @pytest.fixture(scope="function")
@@ -59,3 +70,29 @@ def some_user(weth, wbtc) -> str:
         weth.mock_mint()
         wbtc.mock_mint()
     return account.address
+
+
+@pytest.fixture(scope="function")
+def dsce_with_minted_dsc_collateral(dsce, some_user, weth, wbtc) -> VyperContract:
+    with boa.env.prank(some_user):
+        weth.approve(dsce, COLLATERAL_AMOUNT)
+        wbtc.approve(dsce, COLLATERAL_AMOUNT)
+
+        dsce.deposit_and_mint(weth, COLLATERAL_AMOUNT, MINT_AMOUNT)
+        dsce.deposit_and_mint(wbtc, COLLATERAL_AMOUNT, MINT_AMOUNT)
+
+    return dsce
+
+
+@pytest.fixture(scope="function")
+def mock_dsce_with_minted_dsc_collateral(
+    mock_dsce, some_user, weth, wbtc
+) -> VyperContract:
+    with boa.env.prank(some_user):
+        weth.approve(mock_dsce, COLLATERAL_AMOUNT)
+        wbtc.approve(mock_dsce, COLLATERAL_AMOUNT)
+
+        mock_dsce.deposit_and_mint(weth, COLLATERAL_AMOUNT, MINT_AMOUNT)
+        mock_dsce.deposit_and_mint(wbtc, COLLATERAL_AMOUNT, MINT_AMOUNT)
+
+    return mock_dsce

@@ -121,7 +121,7 @@ def redeem_collateral(token_collateral_address: address, amount: uint256):
 
 
 @external
-def deposite_and_mint(
+def deposit_and_mint(
     token_collateral: address,
     amount_collateral: uint256,
     amount_dsc_to_mint: uint256,

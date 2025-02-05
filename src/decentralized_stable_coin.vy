@@ -24,6 +24,7 @@ exports: (
     erc20.burn_from,
     erc20.mint,
     erc20.set_minter,
+    erc20.is_minter,
     ow.owner,
     ow.transfer_ownership,
 )
@@ -31,8 +32,8 @@ exports: (
 # ------------------------------------------------------------------
 #                         STATE VARIABLES
 # ------------------------------------------------------------------
-NAME: constant(String[25]) = "Decentralized Stable Coin"
-SYMBOL: constant(String[5]) = "DSC"
+NAME: public(constant(String[25])) = "Decentralized Stable Coin"
+SYMBOL: public(constant(String[5])) = "DSC"
 DECIMALS: constant(uint8) = 18
 EIP_712_VERSION: constant(String[20]) = "1"
 
