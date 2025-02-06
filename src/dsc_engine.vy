@@ -302,6 +302,12 @@ def get_token_amount_from_usd(
     return self._get_token_amount_from_usd(token, usd_amount_in_wei)
 
 
+@view
+@external
+def get_usd_value(token: address, amount: uint256) -> uint256:
+    return self._get_usd_value(token, amount)
+
+
 @pure
 @internal
 def _calculate_health_factor(
