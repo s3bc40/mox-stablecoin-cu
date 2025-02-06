@@ -184,10 +184,10 @@ def liquidate(collateral: address, user: address, debt_to_cover: uint256):
     ), DSC_ENGINE_DID_NOT_IMPROVE_HEALTH_FACTOR
     self._revert_if_health_factor_broken(msg.sender)
 
-@external
-def get_health_factor(user: address) -> uint256:
-    return self._health_factor(user)
 
+# ------------------------------------------------------------------
+#                        INTERNAL FUNCTIONS
+# ------------------------------------------------------------------
 @internal
 def _deposit_collateral(
     token_collateral_address: address, amount_collateral: uint256
@@ -282,6 +282,26 @@ def _get_account_collateral_value(user: address) -> uint256:
     return total_collateral_value_usd
 
 
+@internal
+def _burn_dsc(
+    amount_dsc_to_burn: uint256, on_behalf_of: address, dsc_from: address
+):
+    self.user_to_dsc_minted[on_behalf_of] -= amount_dsc_to_burn
+    # Note, we are not checking success here
+    extcall DSC.burn_from(dsc_from, amount_dsc_to_burn)
+
+
+# ------------------------------------------------------------------
+#                          VIEW FUNCTIONS
+# ------------------------------------------------------------------
+@view
+@external
+def get_token_amount_from_usd(
+    token: address, usd_amount_in_wei: uint256
+) -> uint256:
+    return self._get_token_amount_from_usd(token, usd_amount_in_wei)
+
+
 @pure
 @internal
 def _calculate_health_factor(
@@ -295,15 +315,6 @@ def _calculate_health_factor(
     ) // LIQUIDATION_PRECISION
     # @dev apply precision to collateral because it is in USD
     return (collateral_adjusted_for_threshold * PRECISION) // total_dsc_minted
-
-
-@internal
-def _burn_dsc(
-    amount_dsc_to_burn: uint256, on_behalf_of: address, dsc_from: address
-):
-    self.user_to_dsc_minted[on_behalf_of] -= amount_dsc_to_burn
-    # Note, we are not checking success here
-    extcall DSC.burn_from(dsc_from, amount_dsc_to_burn)
 
 
 @view

@@ -8,9 +8,12 @@ from tests.constants import (
     COLLATERAL_AMOUNT,
     DEBT_TO_COVER_BREAKS_HEALTH_FACTOR,
     DEBT_TO_COVER_NO_IMPROVEMENT,
+    DEBT_TO_COVER_SUCCESS,
     MINT_AMOUNT,
-    PRICE_FEED_STILL_GOOD,
     PRICE_FEED_UNDER_VALUE_PRICE,
+    PRICE_FEED_VALUE_NO_IMPROVEMENT,
+    PRICE_FEED_VALUE_WITH_IMPROVEMENT,
+    RANDOM_TOKEN_ADDRESS,
     RANDOM_TOKEN_ADDRESS,
     REDEEM_AMOUNT,
 )
@@ -310,29 +313,18 @@ def test_liquidate_reverts_if_health_factor_good(
             dsce_with_minted_dsc_collateral.liquidate(weth, some_user, MINT_AMOUNT)
 
 
-def test_liquidate_revert_if_health_factor_good(
-    some_user, dsce_with_minted_dsc_collateral, liquidator, weth, eth_usd, btc_usd
-):
-    # Arrange
-    eth_usd.updateAnswer(PRICE_FEED_STILL_GOOD)
-    btc_usd.updateAnswer(PRICE_FEED_STILL_GOOD)
-
-    # Act/Assert
-    with boa.env.prank(liquidator):
-        with boa.reverts(
-            dsce_with_minted_dsc_collateral.DSC_ENGINE_HEALTH_FACTOR_GOOD()
-        ):
-            dsce_with_minted_dsc_collateral.liquidate(
-                weth, some_user, DEBT_TO_COVER_NO_IMPROVEMENT
-            )
-
-
-def test_liquidate_revert_if_health_factor_broken(
-    some_user, dsce_with_minted_dsc_for_liquidation, liquidator, weth, eth_usd, btc_usd
+def test_liquidate_reverts_if_liquidator_health_factor_broken(
+    some_user,
+    dsce_with_minted_dsc_for_liquidation,
+    liquidator,
+    weth,
+    eth_usd,
+    btc_usd,
 ):
     # Arrange
     eth_usd.updateAnswer(PRICE_FEED_UNDER_VALUE_PRICE)
     btc_usd.updateAnswer(PRICE_FEED_UNDER_VALUE_PRICE)
+
     # Act/Assert
     with boa.env.prank(liquidator):
         with boa.reverts(
@@ -341,3 +333,91 @@ def test_liquidate_revert_if_health_factor_broken(
             dsce_with_minted_dsc_for_liquidation.liquidate(
                 weth, some_user, DEBT_TO_COVER_BREAKS_HEALTH_FACTOR
             )
+
+
+def test_liquidate_reverts_if_health_factor_not_improved(
+    some_user,
+    dsce_with_minted_dsc_for_liquidation,
+    liquidator,
+    weth,
+    eth_usd,
+    btc_usd,
+):
+    # Arrange
+    eth_usd.updateAnswer(PRICE_FEED_UNDER_VALUE_PRICE)
+    btc_usd.updateAnswer(PRICE_FEED_VALUE_NO_IMPROVEMENT)
+
+    # Act/Assert
+    with boa.env.prank(liquidator):
+        with boa.reverts(
+            dsce_with_minted_dsc_for_liquidation.DSC_ENGINE_DID_NOT_IMPROVE_HEALTH_FACTOR()
+        ):
+            dsce_with_minted_dsc_for_liquidation.liquidate(
+                weth, some_user, DEBT_TO_COVER_NO_IMPROVEMENT
+            )
+
+
+def test_liquidate_success(
+    some_user,
+    dsce_with_minted_dsc_for_liquidation,
+    dsc,
+    liquidator,
+    weth,
+    wbtc,
+    eth_usd,
+    btc_usd,
+):
+    # Arrange
+    starting_user_dsc_balance = dsce_with_minted_dsc_for_liquidation.user_to_dsc_minted(
+        some_user
+    )
+    starting_liquidator_dsc_balance = dsc.balanceOf(liquidator)
+    starting_liquidator_weth_deposited_balance = weth.balanceOf(liquidator)
+
+    with boa.env.prank(liquidator):
+        # @dev pumping up the collateral to avoid health factor broken
+        # for the liquidator
+        weth.mock_mint()
+        wbtc.mock_mint()
+
+        weth.approve(dsce_with_minted_dsc_for_liquidation, COLLATERAL_AMOUNT)
+        wbtc.approve(dsce_with_minted_dsc_for_liquidation, COLLATERAL_AMOUNT)
+
+        dsce_with_minted_dsc_for_liquidation.deposit_collateral(weth, COLLATERAL_AMOUNT)
+        dsce_with_minted_dsc_for_liquidation.deposit_collateral(wbtc, COLLATERAL_AMOUNT)
+
+    # @dev updating the price feeds
+    eth_usd.updateAnswer(PRICE_FEED_VALUE_WITH_IMPROVEMENT)
+    btc_usd.updateAnswer(PRICE_FEED_VALUE_WITH_IMPROVEMENT)
+
+    expected_token_amount_from_debt_to_cover = (
+        dsce_with_minted_dsc_for_liquidation.get_token_amount_from_usd(
+            weth, DEBT_TO_COVER_SUCCESS
+        )
+    )
+    expected_bonus = (
+        expected_token_amount_from_debt_to_cover
+        * dsce_with_minted_dsc_for_liquidation.LIQUIDATION_BONUS()
+    ) // dsce_with_minted_dsc_for_liquidation.LIQUIDATION_PRECISION()
+
+    # Act
+    with boa.env.prank(liquidator):
+        dsce_with_minted_dsc_for_liquidation.liquidate(
+            weth, some_user, DEBT_TO_COVER_SUCCESS
+        )
+
+    # Assert
+    assert (
+        dsce_with_minted_dsc_for_liquidation.user_to_dsc_minted(some_user)
+        == starting_user_dsc_balance - DEBT_TO_COVER_SUCCESS
+    )
+    assert (
+        dsc.balanceOf(liquidator)
+        == starting_liquidator_dsc_balance - DEBT_TO_COVER_SUCCESS
+    )
+    assert (
+        weth.balanceOf(liquidator)
+        == starting_liquidator_weth_deposited_balance
+        + expected_token_amount_from_debt_to_cover
+        + expected_bonus
+    )

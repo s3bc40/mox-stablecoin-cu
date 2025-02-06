@@ -1,5 +1,6 @@
 # Events
 
+
 event CollatoralDeposited:
     user: address
     amount: uint256
