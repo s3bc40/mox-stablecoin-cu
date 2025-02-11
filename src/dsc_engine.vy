@@ -185,6 +185,23 @@ def liquidate(collateral: address, user: address, debt_to_cover: uint256):
     self._revert_if_health_factor_broken(msg.sender)
 
 
+@external
+def get_health_factor(user: address) -> uint256:
+    return self._health_factor(user)
+
+
+@external
+def get_account_information(user: address) -> (uint256, uint256):
+    return self._get_account_information(user)
+
+
+# @dev workshop own solution fails
+# @external
+# def get_collateral_adjusted_for_threshold(user: address) -> uint256:
+#     total_collateral_value_usd: uint256 = self._get_account_collateral_value(user)
+#     return self._get_collateral_adjusted_for_threshold(total_collateral_value_usd)
+
+
 # ------------------------------------------------------------------
 #                        INTERNAL FUNCTIONS
 # ------------------------------------------------------------------
@@ -313,7 +330,6 @@ def get_usd_value(token: address, amount: uint256) -> uint256:
 def get_collateral_balance_of_user(user: address, token_collateral: address) -> uint256:
     return self.user_to_token_to_amount_deposited[user][token_collateral]
 
-
 @pure
 @internal
 def _calculate_health_factor(
@@ -322,11 +338,20 @@ def _calculate_health_factor(
     if total_dsc_minted == 0:
         return max_value(uint256)
     # What's the ratio of DSC minted to collateral value?
-    collateral_adjusted_for_threshold: uint256 = (
+    collateral_adjusted_for_threshold_usd: uint256 = (
         total_collateral_value_usd * LIQUIDATION_THRESHOLD
     ) // LIQUIDATION_PRECISION
     # @dev apply precision to collateral because it is in USD
-    return (collateral_adjusted_for_threshold * PRECISION) // total_dsc_minted
+    return (collateral_adjusted_for_threshold_usd * PRECISION) // total_dsc_minted
+
+
+# @dev workshop own solution fails
+# @pure
+# @internal
+# def _get_collateral_adjusted_for_threshold(total_collateral_value_usd: uint256) -> uint256:
+#     return ((
+#         total_collateral_value_usd * LIQUIDATION_THRESHOLD
+#     ) // LIQUIDATION_PRECISION)
 
 
 @view
