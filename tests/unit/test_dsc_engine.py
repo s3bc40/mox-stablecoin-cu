@@ -14,7 +14,6 @@ from tests.constants import (
     PRICE_FEED_VALUE_NO_IMPROVEMENT,
     PRICE_FEED_VALUE_WITH_IMPROVEMENT,
     RANDOM_TOKEN_ADDRESS,
-    RANDOM_TOKEN_ADDRESS,
     REDEEM_AMOUNT,
 )
 
@@ -420,4 +419,21 @@ def test_liquidate_success(
         == starting_liquidator_weth_deposited_balance
         + expected_token_amount_from_debt_to_cover
         + expected_bonus
+    )
+
+
+# ------------------------------------------------------------------
+#                             GETTERS
+# ------------------------------------------------------------------
+def test_get_usd_value_success(dsce_with_minted_dsc_collateral, weth):
+    # Arrange
+    weth_deposited = weth.balanceOf(dsce_with_minted_dsc_collateral)
+    expected_value = dsce_with_minted_dsc_collateral.get_usd_value(
+        weth, COLLATERAL_AMOUNT
+    )
+
+    # Act/Assert
+    assert (
+        dsce_with_minted_dsc_collateral.get_usd_value(weth, weth_deposited)
+        == expected_value
     )

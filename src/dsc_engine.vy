@@ -308,6 +308,12 @@ def get_usd_value(token: address, amount: uint256) -> uint256:
     return self._get_usd_value(token, amount)
 
 
+@view
+@external
+def get_collateral_balance_of_user(user: address, token_collateral: address) -> uint256:
+    return self.user_to_token_to_amount_deposited[user][token_collateral]
+
+
 @pure
 @internal
 def _calculate_health_factor(
