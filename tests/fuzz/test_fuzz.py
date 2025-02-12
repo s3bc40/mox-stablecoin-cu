@@ -96,12 +96,32 @@ class StableCoinFuzzer(RuleBasedStateMachine):
                     e.stack_trace[0].vm_error
                 ):
                     print("Minting DSC failed - health factor broken")
-                    collateral = self._get_collateral_from_seed(collateral_seed)
-                    collateral_amount = self.dsce.get_token_amount_from_usd(
-                        collateral.address, amount
+                    total_dsc_minted, total_value_collateral_usd = (
+                        self.dsce.get_account_information(user)
                     )
-                    if collateral_amount == 0:
-                        collateral_amount = 1
+                    collateral = self._get_collateral_from_seed(collateral_seed)
+                    collateral_user_deposited = (
+                        self.dsce.get_collateral_balance_of_user(
+                            user, collateral.address
+                        )
+                    )
+                    collateral_amount_in_usd = self.dsce.get_usd_value(
+                        self.weth, collateral_user_deposited
+                    )
+
+                    assume(collateral_amount_in_usd > 0)
+
+                    health_factor_pre_mint = 0
+                    while health_factor_pre_mint < int(1e18):
+                        collateral_amount_in_usd *= 2
+                        health_factor_pre_mint = self.dsce.calculate_health_factor(
+                            total_dsc_minted + amount,
+                            total_value_collateral_usd + collateral_amount_in_usd,
+                        )
+                    collateral_amount = self.dsce.get_token_amount_from_usd(
+                        collateral.address, collateral_amount_in_usd
+                    )
+
                     self.mint_and_deposit(collateral_seed, user_seed, collateral_amount)
                     self.dsce.mint_dsc(amount)
 

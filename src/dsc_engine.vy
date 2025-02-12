@@ -331,6 +331,14 @@ def get_collateral_balance_of_user(user: address, token_collateral: address) -> 
     return self.user_to_token_to_amount_deposited[user][token_collateral]
 
 @pure
+@external
+def calculate_health_factor(
+    total_dsc_minted: uint256, total_collateral_value_usd: uint256
+) -> uint256:
+    return self._calculate_health_factor(total_dsc_minted, total_collateral_value_usd)
+    
+
+@pure
 @internal
 def _calculate_health_factor(
     total_dsc_minted: uint256, total_collateral_value_usd: uint256
