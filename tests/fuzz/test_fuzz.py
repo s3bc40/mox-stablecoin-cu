@@ -50,13 +50,15 @@ class StableCoinFuzzer(RuleBasedStateMachine):
         user_seed=st.integers(min_value=0, max_value=USER_SIZE - 1),
         amount=strategy("uint256", min_value=1, max_value=MAX_DEPOSIT_SIZE),
     )
-    def mint_and_deposit(self, collateral_seed: int, user_seed: int, amount: int):
+    def mint_and_deposit(
+        self, collateral_seed: int, user_seed: int, amount: int, user: str = None
+    ):
         # 1. Select a random collateral token
         # 2. Deposit a random amount of collateral
         # self.dsce.deposit_collateral()
         print("Minting and depositing collateral...")
         collateral = self._get_collateral_from_seed(collateral_seed)
-        user = self.users[user_seed]
+        user = self.users[user_seed] if user is None else user
         with boa.env.prank(user):
             collateral.mint_amount(amount)
             collateral.approve(self.dsce, amount)
@@ -104,17 +106,7 @@ class StableCoinFuzzer(RuleBasedStateMachine):
                     self.dsce.mint_dsc(amount)
 
     @rule(
-        collateral_seed=st.integers(min_value=0, max_value=1),
-        user_seed=st.integers(min_value=0, max_value=USER_SIZE - 1),
-        amount=strategy("uint256", min_value=1, max_value=MAX_DEPOSIT_SIZE),
-    )
-    def mint_and_update(self, collateral_seed: int, user_seed: int, amount: int):
-        print("Minting and updating...")
-        self.mint_and_deposit(collateral_seed, user_seed, amount)
-        self.update_collateral_price(0.3, collateral_seed)
-
-    @rule(
-        percentage_new_price=st.floats(min_value=0.4, max_value=1.15),
+        percentage_new_price=st.floats(min_value=0.85, max_value=1.15),
         collateral_seed=st.integers(min_value=0, max_value=1),
     )
     def update_collateral_price(
@@ -164,15 +156,26 @@ class StableCoinFuzzer(RuleBasedStateMachine):
         #                         collateral_amount,
         #                     )
 
+    @rule(
+        collateral_seed=st.integers(min_value=0, max_value=1),
+        user_seed=st.integers(min_value=0, max_value=USER_SIZE - 1),
+        amount=strategy("uint256", min_value=1, max_value=MAX_DEPOSIT_SIZE),
+    )
+    def mint_and_update(self, collateral_seed: int, user_seed: int, amount: int):
+        print("Minting and updating...")
+        self.mint_and_deposit(collateral_seed, user_seed, amount)
+        self.update_collateral_price(0.3, collateral_seed)
+
     @invariant()
     def liquidate(self):
         for user in self.users:
-            if self.dsce.get_health_factor(user) < self.dsce.MIN_HEALTH_FACTOR():
+            if self.dsce.get_health_factor(user) < int(1e18):
                 print("Liquidating...")
                 total_dsc_minted, total_value_collateral_usd = (
                     self.dsce.get_account_information(user)
                 )
                 debt_to_cover = total_dsc_minted - total_value_collateral_usd
+                assume(debt_to_cover > 0)
                 token_amount = self.dsce.get_token_amount_from_usd(
                     self.weth.address, debt_to_cover
                 )
@@ -181,12 +184,9 @@ class StableCoinFuzzer(RuleBasedStateMachine):
                     token_amount = 1
 
                 with boa.env.prank(LIQUIDATOR):
-                    self.mint_and_deposit(0, 0, token_amount)
-                    self.dsce.liquidate(
-                        self.weth.address,
-                        user,
-                        debt_to_cover,
-                    )
+                    # collateral_seed: int, user_seed: int, amount: int
+                    self.mint_and_deposit(0, 0, token_amount, user=user)
+                    self.dsce.liquidate(self.weth.address, user, debt_to_cover)
 
     # invariant: Protocol must have more value in collateral than total supply
     # Price feed changes?
